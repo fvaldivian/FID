@@ -1,0 +1,125 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+install.packages("readr")
+install.packages("corrplot")
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+```
+
+Leyendo la base de datos y haciendo pequeño resumen para visualizar informacion relevante paramalisis de estos datos.
+
+```{r}
+df <- read_csv('supermarket_db.csv', show_col_types = FALSE)
+#head(df)
+summary(df)
+```
+
+Buscando valores nulos en el dataset:
+```{r}
+missing_values <- colSums(is.na(df))
+print(missing_values)
+```
+Analisis visual de las muestras dividida en genero (Male or Female)
+```{r}
+gender_counts <- table(df$Gender)
+print(gender_counts)
+ggplot(df, aes(x = Gender, fill = Gender)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.5) +
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) +
+  labs(title = "Compradores por genero")
+```
+Practicamente no se encuentra diferencia alguna en cuanto a asistencia al mercado entre hombres y mujeres, siendo las mujeres las que mas asisten con un total de 501 muestras y hombres 499.
+
+------------------------------------------------
+La siguiente grafica mostrara las lineas de producto en las que los clientes tieneden a comprar más.
+-> Clientes de género femenino:
+```{r}
+df_female <- df %>%
+  filter(Gender == "Female")
+ggplot(df_female, aes(x = `Product line`, y = Quantity, fill = Gender)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Cantidad Comprada por Mujeres en Cada Línea de Producto", x = "Línea de Producto", y = "Cantidad") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink"))
+
+```
+Como resultado se aprecia que las mujeres que asisten a estos supermercados tiendene a compras mas productos de la linea "Fashion accessories".
+
+-> Clienetes del género masculino.
+```{r}
+df_male <- filter(df, Gender == "Male")
+ggplot(df_male, aes(x = `Product line`, y = Quantity, fill = Gender)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Cantidad Comprada por Hombres en Cada Línea de Producto", x = "Línea de Producto", y = "Cantidad") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) 
+```
+Como resultado del analisis visual de compra segmentado por lineas de productos se llega a la conclusion que los hombres que asisten a nuestras tiendas tienden a realizar mas compras en "Health and beauty".
+
+-----------------------------------------
+Visualizacion de que ciudad tenia mas clientes tomados de muestra en la base de datos.
+
+```{r}
+place_df <- df %>%
+  group_by(City) %>%
+  summarise(CustomerCount = n())
+print(place_df)
+```
+
+-------------------------------------------------------
+
+Vizualizacion de los metodos de pago mas utilizados por los clientes.
+
+```{r}
+payment_df <- df %>%
+  group_by(Payment) %>%
+  summarise(Count = n())
+print(payment_df)
+```
+```{r}
+ggplot(payment_df, aes(x = Payment, y = Count, fill = Payment, label = Count)) +
+  geom_bar(stat = "identity") +
+  geom_text(position = position_stack(vjust = 0.5), size = 3) +
+  labs(title = "Cantidad de Transacciones por Tipo de Pago", x = "Tipo de Pago", y = "Cantidad") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = c("Cash" = "blue", "Credit card" = "green", "Ewallet" = "orange"))
+
+```
+Visualizacion de lineas de producto que tienen mas ingresos brutos.
+
+```{r}
+ggplot(df, aes(x = `Product line`, y = `gross income`)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Ingreso Bruto por Línea de Producto", x = "Línea de Producto", y = "Ingreso Bruto") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+---------------------------------------------------
+
+Visualizacion de la calificacion para cada liena de producto. 
+
+```{r}
+df %>%
+  group_by(`Product line`) %>%
+  summarise(Avg_Rating = mean(Rating, na.rm = TRUE)) %>%
+  ggplot(aes(x = Avg_Rating, y = `Product line`)) +
+  geom_col(fill = "blue") +
+  labs(title = "Promedio de Calificación por Línea de Producto", x = "Promedio de Rating", y = "Product Line") +
+  theme_minimal() +
+  scale_x_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 1))
+
+```
+
+
+
