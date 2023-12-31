@@ -3,15 +3,15 @@ title: "R Notebook"
 output: html_notebook
 ---
 ```{r}
-install.packages("readr")
-install.packages("corrplot")
 library(readr)
 library(ggplot2)
 library(dplyr)
 library(corrplot)
+library(corrplot)
+library(caret)
 ```
 
-Leyendo la base de datos y haciendo pequeño resumen para visualizar informacion relevante paramalisis de estos datos.
+Leyendo la base de datos y haciendo pequeño resumen para visualizar informacion relevante para analisis de estos datos.
 
 ```{r}
 df <- read_csv('supermarket_db.csv', show_col_types = FALSE)
@@ -121,5 +121,46 @@ df %>%
 
 ```
 
+Utilizaremos el modelo de regresion lineal para predecir el total que se gastara un cliente en cada compra.
+```{r}
+data_total <- df[, c('Customer type', 'Quantity', 'Unit price', 'Total')]
+set.seed(123)
+indices_entrenamiento <- sample(1:nrow(data_total), 0.8 * nrow(data_total))
+df_entrenamiento <- data_total[indices_entrenamiento, ]
+df_prueba <- data_total[-indices_entrenamiento, ]
+```
+Entrenando el modelo
+```{r}
+modelo_regresion <- lm(Total ~ Quantity + `Unit price`, data = df_entrenamiento)
+summary(modelo_regresion)
+print(sqrt(0.8895))
+```
+La variable R cuadrado nos dice que tanto explica las variables dependientes las ventas
 
+```{r}
+predicciones <- predict(modelo_regresion, newdata = df_prueba)
+df_prueba$Predicciones <- predicciones
+```
+
+```{r} 
+plot(df_prueba$Total, col = "blue", pch = 16, xlab = "Índice", ylab = "Total", main = "Comparación entre Valores Reales y Predicciones")
+points(df_prueba$Predicciones, col = "red", pch = 16)
+
+abline(lm(Total ~ Predicciones, data = df_prueba), col = "green", lwd = 2)
+legend("topright", legend = c("Real", "Predicción", "Regresión Lineal"), col = c("blue", "red", "green"), pch = 16)
+
+```
+
+```{r}
+mse <- mean((df_prueba$Total - df_prueba$Predicciones)^2)
+print(mse)
+
+mae <- mean(abs(df_prueba$Total - df_prueba$Predicciones))
+print(mae)
+
+rsquared <- 1 - sum((df_prueba$Total - df_prueba$Predicciones)^2) / sum((df_prueba$Total - mean(df_prueba$Total))^2)
+print(rsquared)
+head(df_prueba)
+```
+Teniendo en cuenta los resultados podemos llegar a la concluciòn que aunque el R cuadrado sea bastante alto lo que indica que el modelo explica bien la variacion de los datos, el mse y mae son demasiado altos como para considerarse un buen modelo, teniendo en cuenta que las predicciones se desvian en promedio un 67.7 del Total real, por lo que el modelo puede no estar generalizando bien.
 

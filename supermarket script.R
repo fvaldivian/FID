@@ -1,11 +1,12 @@
 install.packages("readr")
 install.packages("corrplot")
+install.packages("zoo")
 library(readr)
 library(ggplot2)
 library(dplyr)
 library(corrplot)
 library(caret)
-
+library(zoo)
 
 # Leer la base de datos en local usando el paquete readr
 df <- read_csv('supermarket_db.csv')
@@ -167,8 +168,8 @@ datos_entrenamiento <- df[index_entrenamiento, ]
 # El 30% restante se utiliza para prueba
 datos_prueba <- df[-index_entrenamiento, ]
 modelo_entrenamiento <- lm(Total ~ `Unit price` + Quantity + `Tax 5%`, data = datos_entrenamiento)
-predicciones_prueba <- predict(modelo_entrenamiento, newdata = datos_prueba)
 summary(modelo_entrenamiento)
+predicciones_prueba <- predict(modelo_entrenamiento, newdata = datos_prueba)
 
 
 
@@ -177,13 +178,32 @@ summary(modelo_entrenamiento)
 #--------------------Regresion Linal---------------------------------
 
 
-modelo1 <- lm(Total~df$`Unit price` + Quantity + Rating, data=df, na.action = na.exclude)
+modelo1 <- lm(Total~df$`Unit price` + Quantity , data=df, na.action = na.exclude)
 summary(modelo1)
 
 ### graficando modelo de regresion lineal
-
-grafica1 <- ggplot(df, aes(`Rating`, Total))
+grafica1 <- ggplot(df, aes(`Unit price`, Total))
 grafica1 + geom_point()
 #pendiente de regresion lineal
 grafica1 + geom_point() + geom_smooth(method = "lm", colour="red")
-    
+
+
+#------------------------Enfoque a predecir el mes-----------------------
+
+# Convertir la cadena de caracteres a un objeto de fecha
+df$Date <- as.Date(df$Date, format = "%m/%d/%Y")
+
+# Agrupar las ventas por mes
+ventas_por_mes <- aggregate(Total ~ format(Date, "%Y-%m"), data = df, sum)
+
+# Renombrar las columnas si es necesario
+colnames(ventas_por_mes) <- c("Mes", "VentasTotales")
+
+# Imprimir el dataframe resultante
+print(ventas_por_mes)
+
+# Crear un modelo de regresión lineal
+modelo <- lm(VentasTotales ~ Mes, data = ventas_por_mes)
+
+# Imprimir un resumen del modelo
+summary(modelo)

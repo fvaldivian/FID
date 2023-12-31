@@ -1,0 +1,227 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+install.packages('corrplot')
+install.packages('dplyr')
+install.packages('caret')
+install.packages('forecast')
+install.packages('readr')
+install.packages('ggplot2')
+install.packages("lubridate")
+```
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(caret)
+library(forecast)
+
+```
+
+Cargar dataset
+```{r}
+sales <- read_csv('supermarket_db.csv', show_col_types = FALSE)
+#head(df)
+summary(sales)
+```
+
+
+
+Exploracion de los datos
+
+```{r}
+media_total <- mean(sales$Total)
+cat("El monto total por transacción es", media_total)
+
+```
+
+```{r}
+ggplot(sales, aes(x = Total)) +
+  geom_density(fill = "skyblue", color = "blue", alpha = 0.5) +
+  labs(title = "Distribución de Ventas",
+       x = "Total de Ventas",
+       y = "Densidad")
+```
+Que sucursal ingresa más
+
+```{r}
+branch_summary <- sales %>%
+  group_by(Branch) %>%
+  summarise(Max_Total = max(Total), Transaction_Count = n())
+
+# Crear un gráfico de barras
+ggplot(branch_summary, aes(x = Branch, y = Max_Total, fill = Branch)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = sprintf("$%.2f", Max_Total)), vjust = -0.5, position = position_dodge(width = 1)) +
+  labs(title = "Sucursal que genera más ingresos",
+       x = "Sucursal",
+       y = "Total Máximo",
+       fill = "Sucursal") +
+  theme_minimal()
+```
+Satisfaccion de clientes.
+```{r}
+ggplot(sales, aes(x = Rating)) +
+  geom_density(fill = "skyblue", color = "blue", alpha = 0.5) +
+  labs(title = "Distribución de la Satisfacción del Cliente",
+       x = "Calificación",
+       y = "Densidad") +
+  theme_minimal()
+```
+
+Producto mas popular en Enero
+```{r}
+sales$Date <- as.Date(sales$Date, format = "%m/%d/%Y")
+
+# Filtrar por enero
+sales_january <- sales[sales$Date >= as.Date("2019-01-01") & sales$Date <= as.Date("2019-01-31"), ]
+
+product_counts <- sales_january %>%
+  group_by(`Product line`) %>%
+  summarise(Count = n())
+
+# Ordenar el dataframe por la frecuencia en orden descendente
+product_counts <- product_counts[order(-product_counts$Count), ]
+
+# Crear un gráfico de barras horizontales
+ggplot(product_counts, aes(x = Count, y = reorder(`Product line`, -Count))) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "blue") +
+  labs(title = "Artículos populares vendidos en Enero de 2019",
+       x = "Conteo",
+       y = "Línea de Producto") +
+  theme_minimal()
+```
+Productos mas populares en Febrero
+```{r}
+# Filtrar por febrero
+sales_february <- sales[sales$Date >= as.Date("2019-02-01") & sales$Date <= as.Date("2019-02-28"), ]
+
+product_counts_february <- sales_february %>%
+  group_by(`Product line`) %>%
+  summarise(Count = n())
+
+product_counts_february <- product_counts_february[order(-product_counts_february$Count), ]
+
+# Crear un gráfico de barras horizontales
+ggplot(product_counts_february, aes(x = Count, y = reorder(`Product line`, -Count))) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "blue") +
+  labs(title = "Artículos populares vendidos en Febrero de 2019",
+       x = "Conteo",
+       y = "Línea de Producto") +
+  theme_minimal()
+
+```
+Productos más vendidos en Marzo
+```{r}
+# Filtrar por febrero
+sales_march <- sales[sales$Date >= as.Date("2019-03-01") & sales$Date <= as.Date("2019-03-31"), ]
+
+product_counts_march <- sales_march %>%
+  group_by(`Product line`) %>%
+  summarise(Count = n())
+
+product_counts_march <- product_counts_march[order(-product_counts_march$Count), ]
+
+# Crear un gráfico de barras horizontales
+ggplot(product_counts_march, aes(x = Count, y = reorder(`Product line`, -Count))) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "blue") +
+  labs(title = "Artículos populares vendidos en Marzo de 2019",
+       x = "Conteo",
+       y = "Línea de Producto") +
+  theme_minimal()
+```
+Grafico de densidad del total de ventas hechas en Enero
+```{r}
+ggplot(sales_january, aes(x = Total, fill = "Ventas totales en Enero de 2019")) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Distribution of Total Sales in January 2019",
+       x = "Ventas totales",
+       y = "Densidad") +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+El resultado del analisis de densidad nos muestra que los datos estan sesgados hacia los valores entre 0 y 260 en su mayoria, por lo que hay mas brobabilidad de que las personas relicen compras totales en ese rango de precio.
+
+
+Vamos a analizar la variable Total con respecto a la variable Date mediante un analisis de series temporales.
+
+```{r}
+#Formatear las fechas de la base de datos
+sales$Date <- as.Date(sales$Date, format = "%m/%d/%Y")
+#Creamos una serie temporal con la variable Total
+time_series_data <- ts(sales$Total, start = c(min(sales$Date), 1), end = c(max(sales$Date), 12), frequency = 12)
+# Plotear la serie temporal
+autoplot(time_series_data, main = "Gastos de Clientes a lo Largo del Tiempo", xlab = "Fecha", ylab = "Total Gasto")
+
+```
+Descomponer la serie temporal
+En el paso de descomposición de la serie temporal, se utiliza la función decompose() para separar la serie temporal en tres componentes principales: tendencia (trend), estacionalidad (seasonal), y residuos (remainder o random). Estos componentes proporcionan información sobre cómo la serie temporal cambia a lo largo del tiempo y ayudan a entender patrones subyacentes.
+
+```{r}
+#Descomponer la serie temporal
+decomposed <- decompose(time_series_data)
+autoplot(decomposed)
+```
+Ahora intentraemos pronosticar datos futuros en los proximos 12 periodos
+```{r}
+forecast_data <- forecast(time_series_data, h = 12)
+autoplot(forecast_data, main = "Pronóstico de Gastos Futuros", xlab = "Fecha", ylab = "Total Gasto")
+```
+
+Ahora utilizaremos series temporales para predecir las ventas en el mes de marzo
+
+```{r}
+
+sales$Date <- as.Date(sales$Date, format="%m/%d/%Y")
+sales$Dia <- as.Date(sales$Date)
+nuevo_df <- sales %>%
+  group_by(Dia) %>%
+  summarise(Ventas_diarias = sum(Total))
+
+supersales_ts = ts(nuevo_df$Ventas_diarias, start = c(1), end = c(59), frequency = 1)
+modelo <- auto.arima(supersales_ts)
+autoplot(supersales_ts)
+acf(supersales_ts)
+
+```
+En la grafica de correlacion podemos ver que no exsite una autocorrelacion muy destacada entre los lags, esto indica que no hay mucha correlacion entre los datos actuales y los datos anteriores en la serie temporal. Como las ventas diarias son bastante aleatorias y no no muestran un patron o tendencia clara. 
+A pesar de esto utilizaremos modelos como ARIMA para preveer futuros resultados y analizar las predicciones con los datos reales.
+
+```{r}
+avg_model = Arima(supersales_ts, c(0,0,0)) # autocorrelacion 0 | integracion 0 | meanaf 0
+#str(avg_model)
+avg_forecast = forecast(avg_model)
+str(avg_forecast) 
+avg_forecast = forecast(avg_model, 30)
+avg_forecast$mean
+plot(supersales_ts)
+lines(avg_forecast$mean, col="pink")
+autoplot(avg_forecast)
+
+```
+
+```{r}
+
+arima_model = auto.arima(supersales_ts, seasonal = FALSE)
+arima_forecast = forecast(arima_model, 30)
+autoplot(arima_forecast)
+print(supersales_ts)
+
+```
+```{r}
+seasonal_arima_model = auto.arima(supersales_ts)
+season_arima_forecast = forecast(seasonal_arima_model, h = 30, level = c(80,99))
+autoplot(season_arima_forecast)
+```
+```{r}
+autoplot(total_supersales_ts) +
+  autolayer(season_arima_forecast, series = "Predicción", alpha = 0.5) +
+  ggtitle("Predicción SARIMA y Datos Originales")
+
+```
+
+Como resultado podemos concluir que el modelo no logra captar autocorrelacion en los datos y par ello no logramos una prediccion valida utilizando series temporales, esto se debe a que como vimos en el analisis de AFC no existe una buena autocorrelacion entre los datos historicos.

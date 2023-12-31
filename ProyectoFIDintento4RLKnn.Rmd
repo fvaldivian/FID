@@ -1,0 +1,318 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+##install.packages("ggplot2")
+```
+
+Cargamos las librerías
+```{r}
+library(readr)
+library(caret)
+```
+
+
+```{r}
+retail<-  read_csv("archive (1)/supermarket_sales - Sheet1.csv")
+head(retail)
+```
+
+Filtramos por tipo de productos
+```{r}
+unique(retail$`Product line`)
+```
+
+Creamos los subconjuntos filtrando por tipos de productos y quedandonos con los atributos que nos interesan para nuestra predicción
+```{r}
+electronic_data <- subset(retail, `Product line` == "Electronic accessories",select = c(`Product line`, `Unit price`, Total, Quantity))
+healthbeauty_data <- subset(retail, `Product line` == "Health and beauty",select = c(`Product line`, `Unit price`, Total, Quantity))
+home_data <- subset(retail, `Product line` == "Home and lifestyle",select = c(`Product line`, `Unit price`, Total, Quantity))
+sportsravel_data <- subset(retail, `Product line` == "Sports and travel",select = c(`Product line`, `Unit price`, Total, Quantity))
+food_data <- subset(retail, `Product line` == "Food and beverages",select = c(`Product line`, `Unit price`, Total, Quantity))
+fashion_data <- subset(retail, `Product line` == "Fashion accessories",select = c(`Product line`, `Unit price`, Total, Quantity))
+```
+
+```{r}
+(healthbeauty_data)
+```
+
+Dividir los datos en entrenamiento y prueba (80% - 20%) Para cada tipo de producto: 
+```{r}
+set.seed(123)  # Esto es para reproducibilidad
+trainIndex_elect <- createDataPartition(electronic_data$Total, p = 0.8, list = FALSE)
+trainIndex_health <- createDataPartition(healthbeauty_data$Total, p = 0.8, list = FALSE)
+trainIndex_home <- createDataPartition(home_data$Total, p = 0.8, list = FALSE)
+trainIndex_sports <- createDataPartition(sportsravel_data$Total, p = 0.8, list = FALSE)
+trainIndex_food <- createDataPartition(food_data$Total, p = 0.8, list = FALSE)
+trainIndex_fashion <- createDataPartition(fashion_data$Total, p = 0.8, list = FALSE)
+```
+
+
+```{r}
+##ELECTRONICS
+train_data_electronic<- electronic_data[trainIndex_elect, ]
+test_data_electronic<- electronic_data[-trainIndex_elect, ]
+
+##HEALTH AND BEAUTY
+
+train_data_health<- healthbeauty_data[trainIndex_health, ]
+test_data_health<- healthbeauty_data[-trainIndex_health, ]
+
+##HOME AND LIFESTYLE
+
+train_data_home<- home_data[trainIndex_home, ]
+test_data_home<- home_data[-trainIndex_home, ]
+
+##SPORTS AND TRAVEL
+
+train_data_sports<- sportsravel_data[trainIndex_sports, ]
+test_data_sports<- sportsravel_data[-trainIndex_sports, ]
+
+##FOOD AND BEVERAGES
+
+train_data_food<- food_data[trainIndex_food, ]
+test_data_food<- food_data[-trainIndex_food, ]
+
+##FASHIOn ACCESORIES
+
+train_data_fashion<- fashion_data[trainIndex_fashion, ]
+test_data_fashion<- fashion_data[-trainIndex_fashion, ]
+```
+
+
+```{r}
+##Hacer para cada subset para ver si hay valores faltantes
+nrow(test_data_health) 
+missing_values <- colSums(is.na(train_data_health))
+
+# Mostrar el número de valores faltantes por columna
+print(missing_values)
+```
+
+Entrenar el modelo KNN
+```{r}
+k <- 5  # Número de vecinos a considerar
+model_knn_electronic<- train(Total ~ `Unit price` + Quantity, data = train_data_electronic, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k), metric = "RMSE")
+```
+
+
+
+```{r}
+model_knn_HEALTH<- train(Total ~ `Unit price` + Quantity, data = train_data_health, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k), metric = "RMSE")
+```
+
+
+```{r}
+model_knn_home<- train(Total ~ `Unit price` + Quantity, data = train_data_home, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k), metric = "RMSE")
+```
+
+
+```{r}
+model_knn_sport<- train(Total ~ `Unit price` + Quantity, data = train_data_sports, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k), metric = "RMSE")
+
+```
+
+
+```{r}
+model_knn_food<- train(Total ~ `Unit price` + Quantity, data = train_data_food, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k), metric = "RMSE")
+
+```
+
+
+```{r}
+model_knn_fashion<- train(Total ~ `Unit price` + Quantity, data = train_data_fashion, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k), metric = "RMSE")
+
+```
+
+Realizar predicciones los conjuntos de pruebas
+```{r}
+
+predictions_electronic <- predict(model_knn_electronic, newdata = test_data_electronic)
+predictions_health <- predict(model_knn_HEALTH, newdata = test_data_health)
+predictions_home <- predict(model_knn_home, newdata = test_data_home)
+predictions_sports <- predict(model_knn_sport, newdata = test_data_sports)
+predictions_food<- predict(model_knn_food, newdata = test_data_food)
+predictions_fashion <- predict(model_knn_fashion, newdata = test_data_fashion)
+
+# Evaluar el rendimiento de los modelos
+RMSE_electronic <- sqrt(mean((predictions_electronic - test_data_electronic$Total)^2))
+RMSE_health <- sqrt(mean((predictions_health - test_data_health$Total)^2))
+RMSE_home<- sqrt(mean((predictions_home - test_data_home$Total)^2))
+RMSE_sports <- sqrt(mean((predictions_sports - test_data_sports$Total)^2))
+RMSE_food <- sqrt(mean((predictions_food - test_data_food$Total)^2))
+RMSE_fashion <- sqrt(mean((predictions_fashion - test_data_fashion$Total)^2))
+```
+
+
+```{r}
+
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de electrónica es  :", RMSE_electronic, "."))
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de salud y belleza es  :", RMSE_health, "."))
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de hogar y estilo de vida es  :", RMSE_home, "."))
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de deportes y viajes es  :", RMSE_sports, "."))
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de alimetación y bebidas es  :", RMSE_food, "."))
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de moda es :", RMSE_fashion, "."))
+##hacer para cada conjunto de datos
+```
+
+
+DETERMINAR VALOR OPTIMO DE K para cada modelo
+
+
+
+```{r}
+
+nombres_modelos <- c("Electronic", "Health", "Home", "Sport", "Food", "Fashion")
+lista_datos <- list(electronic_data, healthbeauty_data, home_data, sportsravel_data, food_data, fashion_data)
+
+for (i in seq_along(lista_datos)) {
+  k_values <- seq(1, 20, by = 1)  # Rango de valores de k a probar
+  
+  data <- lista_datos[[i]]
+  
+  # Lista para almacenar los errores RMSE
+  errores <- vector("list", length(k_values))
+  
+  # Entrenar modelos con diferentes valores de k
+  for (j in seq_along(k_values)) {
+    set.seed(123)  # Semilla para reproducibilidad
+    model_knn <- train(Total ~ `Unit price` + Quantity, data = data, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = k_values[j]), metric = "RMSE")
+    errores[[j]] <- model_knn$results$RMSE
+  }
+  
+  # Encontrar el valor óptimo de k para el modelo actual
+  k_optimo <- k_values[which.min(unlist(errores))]
+  
+  # Imprimir el valor óptimo de k para el modelo actual
+  cat("El valor óptimo de k para el modelo", nombres_modelos[i], "es:", k_optimo, "\n")
+}
+```
+Con estos datos, volvemos a calcular cada modelo, y ya después dibujamos el gráfico
+```{r}
+
+model_knn_electronic<- train(Total ~ `Unit price` + Quantity, data = train_data_electronic, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = 2), metric = "RMSE")
+
+
+model_knn_HEALTH<- train(Total ~ `Unit price` + Quantity, data = train_data_health, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = 2), metric = "RMSE")
+
+model_knn_home<- train(Total ~ `Unit price` + Quantity, data = train_data_home, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = 1), metric = "RMSE")
+
+model_knn_sport<- train(Total ~ `Unit price` + Quantity, data = train_data_sports, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = 2), metric = "RMSE")
+
+model_knn_food<- train(Total ~ `Unit price` + Quantity, data = train_data_food, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = 5), metric = "RMSE")
+
+model_knn_fashion<- train(Total ~ `Unit price` + Quantity, data = train_data_fashion, method = "knn", trControl = trainControl(method = "cv"), preProcess = c("center", "scale"), tuneGrid = data.frame(k = 1), metric = "RMSE")
+
+
+##Repetimos las predicciones los conjuntos de pruebas
+
+
+predictions_electronic <- predict(model_knn_electronic, newdata = test_data_electronic)
+predictions_health <- predict(model_knn_HEALTH, newdata = test_data_health)
+predictions_home <- predict(model_knn_home, newdata = test_data_home)
+predictions_sports <- predict(model_knn_sport, newdata = test_data_sports)
+predictions_food<- predict(model_knn_food, newdata = test_data_food)
+predictions_fashion <- predict(model_knn_fashion, newdata = test_data_fashion)
+
+# Evaluar el rendimiento de los modelos
+RMSE_electronic2 <- sqrt(mean((predictions_electronic - test_data_electronic$Total)^2))
+RMSE_health2 <- sqrt(mean((predictions_health - test_data_health$Total)^2))
+RMSE_home2<- sqrt(mean((predictions_home - test_data_home$Total)^2))
+RMSE_sports2 <- sqrt(mean((predictions_sports - test_data_sports$Total)^2))
+RMSE_food2 <- sqrt(mean((predictions_food - test_data_food$Total)^2))
+RMSE_fashion2 <- sqrt(mean((predictions_fashion - test_data_fashion$Total)^2))
+
+print(paste("Error RMSE en el modelo para productos de electrónica con k=2  es  :", RMSE_electronic2, ", mejora un ", (RMSE_electronic-RMSE_electronic2)/RMSE_electronic, "%"))
+
+print(paste("Error RMSE en el modelo para productos de salud y bellezacon k=2  es  :", RMSE_health2, ", mejora un ", (RMSE_health-RMSE_health2)/RMSE_health, "%"))
+
+print(paste("Error RMSE en el modelo para productos de hogar y estilo de vidacon k=1  es  :", RMSE_home2, ", mejora un ", (RMSE_home-RMSE_home2)/RMSE_home, "%"))
+
+print(paste("Error RMSE en el modelo para productos de deportes y viajes con k=2  es  :", RMSE_sports2, ", mejora un ", (RMSE_sports-RMSE_sports2)/RMSE_sports, "%"))
+
+print(paste("Error RMSE en el modelo para productos de alimetación y bebidas con k=5  es  :", RMSE_food2, ", mejora un ", (RMSE_food-RMSE_food2)/RMSE_food, "%"))
+
+print(paste("Error 'Root Mean Squared Error' en el modelo para productos de moda con k=1  es  :", RMSE_fashion2, ", mejora un ", (RMSE_fashion-RMSE_fashion2)/RMSE_fashion, "%"))
+      
+```
+
+GRÁFICOS PARA CADA TIPO DE PRODUCTO
+```{r}
+#Realizar predicciones para cada tipo de producto
+predictions_electronic <- predict(model_knn_electronic, newdata = test_data_electronic)
+#predictions_fashion <- predict(model_fashion, newdata = test_data_fashion)
+# ... (haz lo mismo para otros tipos de productos)
+
+# Crear gráfico para Electronic accessories
+plot(test_data_electronic$Total, predictions_electronic, 
+     xlab = "Ventas reales", ylab = "Predicciones",
+     main = "Predicciones vs. Ventas reales para Electronic accessories")
+abline(0, 1, col = "red")  # Línea de referencia (predicción = valor real)
+
+# Mostrar otros gráficos para diferentes tipos de productos de manera similar
+# ...
+
+```
+
+
+```{r}
+# Crear un gráfico que muestre las predicciones y el error para cada tipo de producto
+plot(test_data_electronic$Total, predictions_electronic, 
+     xlab = "Ventas reales", ylab = "Predicciones",
+     main = "Predicciones vs. Ventas reales para diferentes tipos de productos", col = "purple")
+points(test_data_fashion$Total, predictions_fashion, col = "red")  # Agregar datos de moda
+
+# Agregar datos de otros tipos de productos
+points(test_data_health$Total, predictions_health, col = "green")
+points(test_data_home$Total, predictions_home, col = "blue")
+points(test_data_food$Total, predictions_food, col = "orange")
+points(test_data_sports$Total, predictions_sports, col = "pink")
+# Agregar más puntos para otros tipos de productos...
+
+# Actualizar la leyenda con los valores RMSE de cada tipo de producto
+legend("topright", legend = c(
+  paste("Electronic accessories (RMSE:", round(RMSE_electronic2, 2), ")"),
+  paste("Fashion accessories (RMSE:", round(RMSE_fashion2, 2), ")"),
+  paste("Health  (RMSE:", round(RMSE_health2, 2), ")"),
+  paste("Home and lifestyle (RMSE:", round(RMSE_home2, 2), ")"),
+  paste("Sports and travel (RMSE:", round(RMSE_sports2, 2), ")"),
+  paste("Food and Beverage (RMSE:", round(RMSE_food2, 2), ")")
+
+),
+col = c("purple", "red", "green", "blue","orange","pink"),
+pch = 1)
+
+abline(0, 1, col = "black")  # Línea de referencia (predicción = valor real)
+
+```
+
+Predicción del total medio por cada tipo de producto
+```{r}
+# Función para calcular la predicción media
+calculate_mean_prediction <- function(predictions) {
+  return(mean(predictions))
+}
+```
+
+
+```{r}
+
+
+# Calcular la predicción media para cada tipo de producto
+mean_prediction_electronic <- calculate_mean_prediction(predictions_electronic)
+mean_prediction_fashion <- calculate_mean_prediction(predictions_fashion)
+mean_prediction_sports <- calculate_mean_prediction(predictions_sports)
+mean_prediction_food <- calculate_mean_prediction(predictions_food)
+mean_prediction_health <- calculate_mean_prediction(predictions_health)
+mean_prediction_home <- calculate_mean_prediction(predictions_home)
+
+
+cat("La predicción media en $ para Electronic accessories es:", round(mean_prediction_electronic, 2), "\n")
+cat("La predicción media en $ para Accesorios de Moda es:", round(mean_prediction_fashion, 2), "\n")
+cat("La predicción media en $  para Deportes y Viajes  es:", round(mean_prediction_sports, 2), "\n")
+cat("La predicción media en $ para Salud es:", round(mean_prediction_health, 2), "\n")
+cat("La predicción media en $  para Hogar y Estilo de Vida es:", round(mean_prediction_home, 2), "\n")
+cat("La predicción media en $ para Alimentación y bebida es:", round(mean_prediction_food, 2), "\n")
+```
+
