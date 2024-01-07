@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 ```{r}
 library(readr)
@@ -11,7 +13,16 @@ library(corrplot)
 library(caret)
 ```
 
-Leyendo la base de datos y haciendo pequeño resumen para visualizar informacion relevante para analisis de estos datos.
+## Introduccion
+El presente notebook se centra en el análisis y modelado de datos de un supermercado, con el objetivo de comprender mejor el comportamiento de los clientes y explorar la posibilidad de predecir el gasto total en función de variables específicas. A través de visualizaciones y técnicas de regresión lineal, se busca identificar patrones de compra, factores influyentes y evaluar la capacidad predictiva del modelo.
+
+
+## Objetivos
+
+Hacer una exploracion descriptiva y Utilizar un modelo de regresión lineal para predecir el gasto total basado en la cantidad y precio unitario de los productos adquiridos.
+
+Estos objetivos combinados proporcionarán una comprensión integral del panorama de clientes del supermercado, permitiendo la identificación de patrones de comportamiento y la evaluación de la eficacia de un modelo de regresión lineal en la predicción del gasto total.
+
 
 ```{r}
 df <- read_csv('supermarket_db.csv', show_col_types = FALSE)
@@ -24,7 +35,7 @@ Buscando valores nulos en el dataset:
 missing_values <- colSums(is.na(df))
 print(missing_values)
 ```
-Analisis visual de las muestras dividida en genero (Male or Female)
+Análisis visual de las muestras dividida en género (Male or Female)
 ```{r}
 gender_counts <- table(df$Gender)
 print(gender_counts)
@@ -34,11 +45,12 @@ ggplot(df, aes(x = Gender, fill = Gender)) +
   scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) +
   labs(title = "Compradores por genero")
 ```
-Practicamente no se encuentra diferencia alguna en cuanto a asistencia al mercado entre hombres y mujeres, siendo las mujeres las que mas asisten con un total de 501 muestras y hombres 499.
+Prácticamente no se encuentra diferencia alguna en cuanto a asistencia al mercado entre hombres y mujeres, siendo las mujeres las que más asisten con un total de 501 muestras y hombres 499.
 
 ------------------------------------------------
-La siguiente grafica mostrara las lineas de producto en las que los clientes tieneden a comprar más.
+La siguiente gráfica mostrará las líneas de producto en las que los clientes tienden a comprar más.
 -> Clientes de género femenino:
+
 ```{r}
 df_female <- df %>%
   filter(Gender == "Female")
@@ -50,7 +62,7 @@ ggplot(df_female, aes(x = `Product line`, y = Quantity, fill = Gender)) +
   scale_fill_manual(values = c("Male" = "blue", "Female" = "pink"))
 
 ```
-Como resultado se aprecia que las mujeres que asisten a estos supermercados tiendene a compras mas productos de la linea "Fashion accessories".
+Como resultado se aprecia que las mujeres que asisten a estos supermercados tienden a comprar más productos de la línea "Fashion accessories".
 
 -> Clienetes del género masculino.
 ```{r}
@@ -62,7 +74,7 @@ ggplot(df_male, aes(x = `Product line`, y = Quantity, fill = Gender)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) 
 ```
-Como resultado del analisis visual de compra segmentado por lineas de productos se llega a la conclusion que los hombres que asisten a nuestras tiendas tienden a realizar mas compras en "Health and beauty".
+Como resultado del análisis visual de compra segmentado por líneas de productos se llega a la conclusión que los hombres que asisten a nuestras tiendas tienden a realizar más compras en "Health and beauty".
 
 -----------------------------------------
 Visualizacion de que ciudad tenia mas clientes tomados de muestra en la base de datos.
@@ -76,7 +88,7 @@ print(place_df)
 
 -------------------------------------------------------
 
-Vizualizacion de los metodos de pago mas utilizados por los clientes.
+Vizualización de los métodos de pago més utilizados por los clientes.
 
 ```{r}
 payment_df <- df %>%
@@ -94,7 +106,7 @@ ggplot(payment_df, aes(x = Payment, y = Count, fill = Payment, label = Count)) +
   scale_fill_manual(values = c("Cash" = "blue", "Credit card" = "green", "Ewallet" = "orange"))
 
 ```
-Visualizacion de lineas de producto que tienen mas ingresos brutos.
+Visualización de líneas de producto que tienen más ingresos brutos.
 
 ```{r}
 ggplot(df, aes(x = `Product line`, y = `gross income`)) +
@@ -107,7 +119,7 @@ ggplot(df, aes(x = `Product line`, y = `gross income`)) +
 
 ---------------------------------------------------
 
-Visualizacion de la calificacion para cada liena de producto. 
+Visualización de la calificación para cada línea de producto. 
 
 ```{r}
 df %>%
@@ -121,14 +133,15 @@ df %>%
 
 ```
 
-Utilizaremos el modelo de regresion lineal para predecir el total que se gastara un cliente en cada compra.
+Utilizaremos el modelo de regresión lineal para predecir el total que se gastara un cliente en cada compra.
 ```{r}
 data_total <- df[, c('Customer type', 'Quantity', 'Unit price', 'Total')]
 set.seed(123)
-indices_entrenamiento <- sample(1:nrow(data_total), 0.8 * nrow(data_total))
+indices_entrenamiento <- sample(1:nrow(data_total), 0.9 * nrow(data_total))
 df_entrenamiento <- data_total[indices_entrenamiento, ]
 df_prueba <- data_total[-indices_entrenamiento, ]
 ```
+
 Entrenando el modelo
 ```{r}
 modelo_regresion <- lm(Total ~ Quantity + `Unit price`, data = df_entrenamiento)
@@ -162,5 +175,9 @@ rsquared <- 1 - sum((df_prueba$Total - df_prueba$Predicciones)^2) / sum((df_prue
 print(rsquared)
 head(df_prueba)
 ```
-Teniendo en cuenta los resultados podemos llegar a la concluciòn que aunque el R cuadrado sea bastante alto lo que indica que el modelo explica bien la variacion de los datos, el mse y mae son demasiado altos como para considerarse un buen modelo, teniendo en cuenta que las predicciones se desvian en promedio un 67.7 del Total real, por lo que el modelo puede no estar generalizando bien.
+
+## Conclusión
+
+En evaluación de los resultados obtenidos, se destaca un R cuadrado significativamente elevado, sugiriendo que el modelo de regresión lineal logra explicar bien la variación presente en los datos. Sin embargo, esta aparente capacidad de explicación no se traduce en un rendimiento satisfactorio cuando examinamos el Mean Squared Error (MSE) y el Mean Absolute Error (MAE). Ambas métricas revelan desviaciones considerables entre las predicciones del modelo y los valores reales, con una desviación promedio de 67.7 en el gasto total. Esta disparidad compromete la capacidad del modelo para generalizar de manera efectiva y sugiere limitaciones en su capacidad predictiva.
+
 
