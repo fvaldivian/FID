@@ -1,0 +1,154 @@
+---
+title: "Árbol de decisión "
+output:
+  html_document:
+    df_print: paged
+---
+
+## Importación
+
+```{r}
+library(rpart)
+library(psych)
+library(rpart)
+library(rpart.plot)
+library(tidyverse)
+library(lubridate)
+library(C50)
+library(gmodels)
+library(OneR)
+```
+
+
+```{r}
+retail<-  read_csv("./supermarket_db.csv")
+head(retail)
+```
+
+Primero, la variable de fecha debe ser codificada adecuadamente para ser reconocida.
+Luego, el conjunto de datos se divide en un conjunto de datos separado para cada rama.
+
+
+```{r}
+retail$Date <- gsub('/', '-', retail$Date)
+
+r2 <- retail %>% 
+  mutate(DATE=mdy(Date))%>%
+  select(everything())
+```
+
+
+```{r}
+retailA<- filter(r2, Branch=='A')
+retailB<- filter(r2, Branch=='B')
+retailC<- filter(r2, Branch=='C')
+```
+
+
+```{r}
+head(retailA)
+colnames(retail)
+```
+
+ÁRBOL DE DECISIÓN C5.0: Se utilizará para identificar las variables significativas que influyen en la predicción de la puntuación que otorga el cliente a la tienda.
+
+Necesitamos encontrar una variable objetivo primero. Examinaremos la calificación. Necesitamos codificar la calificación como sí o no para el árbol de decisiones. Decidimos que 8.5 es una buena calificación, y por debajo es mala. Esto se hace de manera arbitraria.
+
+```{r}
+summary(retail$Rating)
+```
+
+
+```{r}
+retail2<-mutate(retail,
+      goodrating= ifelse(Rating>7.5, "Yes", "No"))
+
+retail2$goodrating <- as.factor(retail2$goodrating)
+
+retail2$Time <- gsub(':', '.', retail2$Time)
+```
+
+
+```{r}
+retail2 <- select(retail2, -(Rating))
+retail2 <- select(retail2, -(Time))
+```
+
+
+```{r}
+retail2 <- retail2 %>% 
+  mutate(DATE=mdy(Date))%>%
+  select(everything())
+```
+
+
+```{r}
+retail2 <- select(retail2, -(Date))
+retail2 <- retail2 %>%
+  mutate(
+    Month=month(DATE)
+  )
+retail2
+```
+
+
+```{r}
+retail2 <- select(retail2, -(DATE))
+```
+
+
+```{r}
+retail3<-select(retail2, Branch,'Customer type', Gender, 'Product line', 'Unit price', Quantity, Total, Month, goodrating)
+
+```
+
+Dividir los datos en conjunto de entrenamiento y prueba.
+```{r}
+
+set.seed(123)
+indices_entrenamiento <- sample(1:nrow(retail3), 0.8 * nrow(retail3))
+retail_train<- retail3[indices_entrenamiento, ]
+retail_test <- retail3[-indices_entrenamiento, ]
+```
+
+
+```{r}
+prop.table(table(retail_test$goodrating))
+prop.table(table(retail_train$goodrating))
+```
+
+
+```{r}
+retail_model <- C5.0(retail_train[-9], retail_train$goodrating)
+
+retail_model
+
+retail_pred <- predict(retail_model, retail_test)
+
+CrossTable(retail_test$goodrating, retail_pred,
+           prop.chisq = FALSE, prop.c = FALSE, prop.r = FALSE,
+           dnn = c('actual default', 'predicted default'))
+```
+
+El resultado final de este análisis de aprendizaje automático no es muy bueno. Sin embargo, parece que las predicciones de "no" son dos veces más probables que los falsos positivos. Por lo tanto, vale la pena examinar los árboles para descubrir por qué se predice "no".
+
+Árbol de decisión al completo.
+
+```{r}
+summary(retail_model)
+```
+
+Estructura del árbol: Cada rama del árbol representa una regla de decisión basada en las variables predictoras. Por ejemplo, en la primera división, si el producto pertenece a la línea "Electronic accessories", se hace una subdivisión adicional basada en las variables como "Branch", "Quantity", "Total", y "Gender", entre otros.
+
+Clasificaciones: El árbol clasifica las observaciones en diferentes categorías. Por ejemplo, si el producto es "Electronic accessories", dependiendo de los valores de las variables, el árbol predice si la calificación será "No" o "Yes" para "goodrating".
+
+Errores del modelo: El árbol tiene un tamaño de 109 nodos y cometió errores en el 19% de las predicciones realizadas en el conjunto de entrenamiento. De las 800 observaciones, 152 fueron clasificadas incorrectamente.
+
+Uso de atributos: Se muestra qué porcentaje del tiempo se usó cada atributo para hacer divisiones en el árbol. Por ejemplo, "Product line" se usó el 100% del tiempo para tomar decisiones, mientras que "Quantity" se usó el 20.38% del tiempo.
+
+Estos resultados muestran cómo el modelo de árbol de decisión divide el espacio de características para predecir la variable objetivo (goodrating) basándose en las características proporcionadas en el conjunto de datos de entrenamiento. 
+
+En resumen, las tres principales características en las que se basan los clientes para dar una buena puntuación ( por encima del 8.5) son: 
+- 100.00%	Product line
+- 91.13%	Branch
+- 67.50%	Customer type

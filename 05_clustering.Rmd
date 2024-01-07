@@ -1,0 +1,206 @@
+---
+title: "Clustering"
+output:
+  html_document:
+    df_print: paged
+---
+## Instalación
+
+```{r, error=TRUE}
+install.packages("tidyverse")   #Utilizada para la manipulación eficiente de datos y visualización.
+install.packages("visdat")      #Empleada para la búsqueda de valores nulos en los conjuntos de datos.
+install.packages("ggplot2")     #Herramienta clave para la creación de visualizaciones atractivas y efectivas.
+install.packages("corrplot")    #Utilizada para analizar y visualizar la correlación entre variables.
+install.packages("NbClust")     #Biblioteca para realizar análisis de clustering.
+install.packages("factoextra")  #Biblioteca para realizar análisis de clustering.
+install.packages("ape")         #Utilizada para la representación gráfica de dendrogramas en análisis jerárquicos.
+install.packages("clValid")     #Herramienta crucial para la comparación y validación de algoritmos en el análisis de clustering.
+```
+
+## Importación
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+library(tidyverse)
+library(visdat)
+library(ggplot2)
+library(corrplot)
+library(NbClust)
+library(factoextra)
+library(ape)
+library(clValid)
+```
+
+## Introducción
+
+En el presente notebook, se tiene como objetivo examinar los patrones existentes en el dataset de ventas de supermercados. La meta consiste en formar grupos con ejemplos más afines y analizar su comportamiento. Con este fin, se implementarán los algoritmos de k-means y clustering jerárquico.
+
+```{r}
+#Leer dataset
+sales_df <- read.table("./supermarket_db.csv", na.strings="", header=TRUE, sep=",", dec=".")
+dim(sales_df) 
+head(sales_df)
+str(sales_df)
+```
+
+## Preprocesado
+
+```{r}
+#Mostrar si hay duplicados
+sum(duplicated(sales_df))
+#Mostrar si hay valores nulos (NA).
+sum(is.na(sales_df))
+
+#Resumen
+summary(sales_df)
+
+```
+## Clustering
+
+La meta consiste en someter los datos a un análisis de clustering con el fin de identificar y agrupar ejemplos que comparten características similares.
+
+```{r}
+#Seleccionar columnas relevantes para el clustering.
+features <- sales_df[, c("Unit.price", "Quantity", "Tax.5.", "Total", "Rating")]
+head(features)
+```
+
+Nos aseguramos de que todas las variables con las que trabajamos son de clase numérica.
+
+```{r}
+lapply(features, class)
+```
+Estudiamos la distribución de los datos.
+
+```{r}
+summary(features)
+```
+
+Notamos una falta de distribución en los datos. Por ende, procedemos a emplear la función scale con el fin de normalizarlos, facilitando así la aplicación de técnicas de clustering.
+
+```{r}
+#Estandarizar los datos
+scaled_data <- scale(features)
+
+summary(scaled_data)
+```
+
+## Clustering Particional
+
+### K-MEANS
+
+Después de normalizar adecuadamente los datos, procedemos a implementar el algoritmo particional k-means con el objetivo de identificar similitudes entre los ejemplos. En el primer paso, se busca estimar el número óptimo de centros a definir. Para esto, se emplean diversos métodos, como silhouette, wss o gap_stat
+
+```{r}
+fviz_nbclust(scaled_data, FUN = kmeans, method = "silhouette")
+fviz_nbclust(scaled_data, FUN = kmeans, method = "wss")
+fviz_nbclust(scaled_data, FUN = kmeans, method = "gap_stat")
+```
+
+Atendiendo a las sugerencias proporcionadas por los métodos, procedemos a implementar el algoritmo k-means para un valor específico de k, en este caso, k = 3.
+
+```{r}
+#Aseguramos la reproducibilidad, establecemos la semilla del generador de números aleatorios
+seed_val <- 123
+set.seed(seed_val)
+# Número de clusters
+k = 3
+#Aplicamos k-means
+sales_clust <- kmeans(scaled_data, centers = k)
+#Ejemplos por grupos
+sales_clust$size
+```
+Los examinamos en detalle mediante representaciones gráficas.
+
+```{r}
+#Incorporamos una columna adicional que indica el número del clúster al cual pertenece cada ejemplo.
+sales_df$Cluster <- as.factor(sales_clust$cluster)
+
+#Crear gráfica
+ggplot(sales_df, aes(x = Unit.price, y = Quantity, color = Cluster)) +
+  geom_point() +
+  labs(title = "Agrupación mediante K-means de las Ventas en Supermercados.",
+       x = "Precio Unitario", y = "Cantidad") +
+  theme_minimal()
+```
+
+En la representación gráfica, se pueden identificar tres conjuntos diferenciados por colores distintos. Cada conjunto exhibe intervalos específicos para el precio unitario y la cantidad de productos vendidos.
+
+El primer conjunto, destacado en rojo, se caracteriza por ser el más reducido pero con una mayor concentración. Este conjunto representa productos con precios unitarios bajos y cantidades significativas. Mayormente comprende productos esenciales de bajo costo, como arroz y frijoles, que son adquiridos en gran medida.
+
+El segundo conjunto, identificado en verde, es más extenso que el primero y abarca un rango más amplio de precios unitarios. Esto sugiere una diversidad de artículos con precios unitarios tanto bajos como altos. Por ejemplo, productos como pollo, leche y papel higiénico podrían pertenecer a este conjunto.
+
+El tercer conjunto, resaltado en azul, es el más extenso en términos de cantidad. Asimismo, presenta un rango amplio tanto en precios unitarios como en cantidades. Este conjunto parece incluir una variedad de productos, desde artículos más costosos como vino, cerveza y sopa enlatada.
+
+## Clustering Jerárquico
+
+Existen diversas estrategias para implementar el Clustering Jerárquico, y en este caso, optaremos por los métodos complete y single. La medición de la distancia entre los ejemplos se lleva a cabo mediante la función dist, la cual utiliza el método euclidean de forma predeterminada.
+
+En el primer paso, procederemos a estimar el número de centros que debemos definir.
+
+```{r}
+fviz_nbclust(scaled_data, FUN = hcut, method = "silhouette")
+fviz_nbclust(scaled_data, FUN = hcut, method = "wss")
+fviz_nbclust(scaled_data, FUN = hcut, method = "gap_stat")
+```
+
+Atendiendo a las sugerencias proporcionadas por los métodos, procedemos a implementar ambos algoritmo jerárquicos para un valor específico de k, en este caso, k = 2.
+
+### Clustering Jerárquico: Complete
+
+El dendrograma posibilita la conexión entre los grupos a los cuales pertenecen los ejemplos. En otras palabras, las agrupaciones configuran un árbol en el cual cada rama que se origina representa un clúster.
+
+```{r}
+hier_complete <- hclust(dist(scaled_data), method= 'complete')
+
+plot(hier_complete, cex = 0.6, hang = -1)
+```
+
+```{r}
+plot(hier_complete, cex = 0.6, hang = -1)
+rect.hclust(hier_complete, k = 2, border = 2:3)
+```
+
+Las conclusiones extraídas muestran similitudes con los resultados previamente obtenidos.
+
+```{r}
+s_clusters <- cutree(hier_complete, k = 2)
+fviz_cluster(list(data = as.matrix(scaled_data), cluster = s_clusters), labels = 4)
+```
+
+## Clustering Jerárquico: Single
+
+De manera similar al caso anterior, el dendrograma resultante al aplicar el clustering jerárquico nos facilita la conexión entre los grupos a los que pertenecen los ejemplos.
+
+```{r}
+hier_single <- hclust(dist(scaled_data), method= 'single')
+
+plot(hier_single, cex = 0.6, hang = -1)
+```
+```{r}
+plot(hier_single, cex = 0.6, hang = -1)
+rect.hclust(hier_single, k = 2, border = 2:3)
+```
+
+Los resultados obtenidos muestran diferencias con respecto a los modelos aplicados anteriormente.
+
+```{r}
+sample_clusters <- cutree(hier_single, k = 2)
+fviz_cluster(list(data = as.matrix(scaled_data), cluster = sample_clusters), labels = 4)
+```
+
+## Evaluación de los modelos
+
+```{r}
+comparison <- clValid(
+                  obj = scaled_data,
+                  nClust = 2:4,
+                  clMethods = c("hierarchical", "kmeans"),
+                  validation = c("stability", "internal"),
+                  maxitems=nrow(scaled_data)
+                  )
+
+print(summary(comparison))
+```
+## Referencias
+https://rpubs.com/Joaquin_AR/310338
